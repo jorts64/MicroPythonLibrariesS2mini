@@ -1271,8 +1271,4 @@ if hc595.get(7):
 print("Registro:", hex(hc595.getall()))
 ```
 
----
 
-# 28. Licencia
-
-Esta biblioteca es un código sencillo de propósito general para proyectos MicroPython. Puede modificarse y adaptarse libremente al proyecto en el que se utilice.
