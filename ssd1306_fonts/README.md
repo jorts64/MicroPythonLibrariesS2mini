@@ -1,4 +1,4 @@
-# `ssd1306_fonts.py`
+import vga1_8x16 as font# `ssd1306_fonts.py`
 
 Librería MicroPython para pantallas OLED SSD1306 con I2C/SPI, framebuffer `framebuf` y soporte para fuentes bitmap personalizadas.
 
@@ -678,7 +678,7 @@ oled.show()
 Si la fuente contiene directamente los caracteres Unicode que se desean representar:
 
 ```python
-import petme_ext_8x16 as font
+import vga2_fonts_8x16 as font
 
 oled.fill(0)
 
@@ -890,4 +890,10 @@ oled.rect(0, 20, 127, 43, 1)
 oled.show()
 ```
 
-Con esto queda cubierta la API de la librería y las extensiones desarrolladas y probadas durante el proyecto.
+## 25. Fuentes personalizadas
+
+Se incluyen fuentes 8x8 (vga2_fonts_8x8) y 8x16 (vga2_fonts_8x16) con los caracteres acentuados en su posición Unicode de forma que transcriben literalmente textos acentuados. También incluyen símbolos interesantes para desarrollo de proyectos en MicroPython (altavoz, Wi-Fi, red, peligro ...)
+
+La fuente vga2_fonts_8x16 además lleva incorporada métodos para representar niveles de bateŕia, progreso de tareas y vúmetros, como se muestra en
+el ejemplo
+

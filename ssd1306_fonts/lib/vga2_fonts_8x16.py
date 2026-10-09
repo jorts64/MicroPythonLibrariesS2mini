@@ -263,3 +263,166 @@ b'\x00\x00\x38\x6c\xc6\xc6\xc6\x6c\x6c\x6c\x6c\xee\x00\x00\x00\x00'\
 b'\x00\x00\x00\x00\x00\xfe\x6c\x6c\x6c\x6c\x6c\x6c\x00\x00\x00\x00'\
 
 FONT = memoryview(_FONT)
+
+import sys
+
+_THIS_FONT = sys.modules[__name__]
+
+
+def battery(oled, level, x, y):
+    """
+    Muestra el indicador de batería.
+
+    level:
+        0..100  porcentaje de batería
+        -1      borra el indicador
+
+    x, y:
+        posición del carácter, en píxeles
+
+    Los glifos 0xA0..0xAB representan 12 niveles
+    de batería entre 0% y 100%.
+    """
+
+    if level == -1:
+        oled.draw_text(" ", x, y, _THIS_FONT)
+        return
+
+    # Limitar el valor al rango válido
+    if level < 0:
+        level = 0
+    elif level > 100:
+        level = 100
+
+    # Convertir 0..100 a índice 0..11
+    index = (level * 11 + 50) // 100
+
+    glyph = 0xA0 + index
+
+    oled.draw_text(chr(glyph), x, y, _THIS_FONT)
+
+
+def bar_done(oled, level, width, x, y):
+    """
+    Muestra una barra de progreso horizontal.
+
+    level:
+        0..100  porcentaje realizado
+        -1      borra la barra
+
+    width:
+        número de caracteres de ancho de la barra
+
+    x, y:
+        posición de la barra en píxeles
+
+    Los glifos 0x91..0x98 representan:
+        0x91 -> 1 píxel vertical
+        0x92 -> 2 píxeles verticales
+        ...
+        0x98 -> 8 píxeles verticales
+
+    El espacio representa una parte vacía.
+    """
+
+    if width <= 0:
+        return
+
+    # Borrar toda la barra
+    if level == -1:
+        oled.draw_text(" " * width, x, y, _THIS_FONT)
+        return
+
+    # Limitar el porcentaje
+    if level < 0:
+        level = 0
+    elif level > 100:
+        level = 100
+
+    # Número total de píxeles horizontales disponibles
+    total_pixels = width * 8
+
+    # Píxeles que deben estar rellenos
+    done_pixels = (level * total_pixels + 50) // 100
+
+    # Construir la barra carácter a carácter
+    text = ""
+
+    for i in range(width):
+        pixels = done_pixels - (i * 8)
+
+        if pixels <= 0:
+            # Segmento completamente vacío
+            text += " "
+        elif pixels >= 8:
+            # Segmento completamente lleno
+            text += chr(0x98)
+        else:
+            # Segmento parcialmente lleno
+            text += chr(0x90 + pixels)
+
+    oled.draw_text(text, x, y, _THIS_FONT)
+
+
+def vumeter(oled, level, height, x, y):
+    """
+    Muestra un VU-meter vertical.
+
+    level:
+        0..100  porcentaje a visualizar
+        -1      borra el indicador
+
+    height:
+        número de caracteres de alto de la barra
+
+    x, y:
+        posición de la barra en píxeles
+
+    Los glifos 0x80..0x90 representan:
+        0x80 -> 0 píxeles verticales
+        0x81 -> 1 píxel vertical
+        ...
+        0x90 -> 16 píxeles verticales
+
+    La barra crece hacia arriba.
+    """
+
+    if height <= 0:
+        return
+
+    # Limitar el porcentaje
+    if level < -1:
+        level = 0
+    elif level > 100:
+        level = 100
+
+    # Borrar toda la barra
+    if level == -1:
+        for i in range(height):
+            row_y = y + i * 16
+            oled.draw_text(" ", x, row_y, _THIS_FONT)
+        return
+
+    # Resolución total de la barra en píxeles
+    total_pixels = height * 16
+
+    # Píxeles que deben estar rellenos
+    done_pixels = (level * total_pixels + 50) // 100
+
+    # Dibujar de abajo hacia arriba
+    for i in range(height):
+        pixels = done_pixels - i * 16
+
+        if pixels <= 0:
+            glyph = " "
+        elif pixels >= 16:
+            glyph = chr(0x90)
+        else:
+            glyph = chr(0x80 + pixels)
+
+        # El primer segmento está abajo
+        row_y = y + (height - 1 - i) * 16
+
+        oled.draw_text(glyph, x, row_y, _THIS_FONT)
+
+

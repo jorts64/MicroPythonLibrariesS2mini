@@ -18,6 +18,35 @@ oled = SSD1306_I2C(
     0x3C
 )
 
+oled.draw_text("vúmetro", 0, 16, font)
+for l in range(101):
+    font2.vumeter(oled, -1,   4, 100, 0)
+    font2.vumeter(oled, l,   4, 100, 0)
+    oled.show()
+    sleep_ms(10)
+sleep(2)
+
+
+oled.fill(0)
+oled.draw_text("Indicador", 0, 0, font)
+oled.draw_text("Batería", 0, 8, font)
+for l in range(101):
+    font2.battery(oled, -1, 112, 0)
+    font2.battery(oled, l, 112, 0)
+    oled.show()
+    sleep_ms(20)
+
+# oled.fill(0)
+oled.draw_text("Indicador", 0, 16, font)
+oled.draw_text("Progreso", 0, 24, font)
+for l in range(101):
+    font2.bar_done(oled, -1, 5, 80, 16)
+    font2.bar_done(oled, l, 5, 80, 16)
+    oled.show()
+    sleep_ms(10)
+sleep(2)
+
+
 oled.fill(0)
 oled.draw_text("AÁÀÄEÉÈËIÍÌÏOÓÒÖ", 0, 0, font)
 oled.draw_text("UÚÙÜNÑCÇ", 0, 8, font)
