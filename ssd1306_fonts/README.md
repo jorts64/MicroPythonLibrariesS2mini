@@ -893,6 +893,11 @@ oled.show()
 
 Se incluyen fuentes 8x8 (vga2_fonts_8x8) y 8x16 (vga2_fonts_8x16) con los caracteres acentuados en su posición Unicode de forma que transcriben literalmente textos acentuados. También incluyen símbolos interesantes para desarrollo de proyectos en MicroPython (altavoz, Wi-Fi, red, peligro ...)
 
-La fuente vga2_fonts_8x16 además lleva incorporada métodos para representar niveles de bateŕia, progreso de tareas y vúmetros, como se muestra en
-el ejemplo
+La fuente vga2_fonts_8x16 además lleva incorporada métodos para representar niveles de bateŕia, progreso de tareas y vúmetros, como se muestra en el ejemplo
+
+![](img/vga2_fonts_8x8.png)
+![](img/vga2_fonts_8x16.png)
+
+También se incluye un editor de fuentes de caracteres. Sólo se deben introducir las definiciones de los
+caracteres, sin la cabecera ni la declaración final del archivo.
 

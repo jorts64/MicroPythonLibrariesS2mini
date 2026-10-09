@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta charset="UTF-8">
+<title>Editor de fuentes MicroPython</title>
+<style>
+body { font-family: sans-serif; }
+#container { display: flex; gap: 20px; align-items: flex-start; }
+
+#grid {
+  display: grid;
+  gap: 2px;
+}
+
+.cell {
+  width: 22px;
+  height: 22px;
+  background: #eee;
+  border: 1px solid #aaa;
+  cursor: pointer;
+}
+.cell.on { background: #000; }
+
+#controls button { display: block; margin: 3px 0; width: 180px; }
+textarea { width: 100%; }
+canvas { border: 1px solid #aaa; cursor: pointer; }
+</style>
+</head>
+
+<body>
+<h2>Editor de fuentes MicroPython</h2>
+
+<label>Tamaño del carácter:</label>
+<select id="fontSize">
+  <option value="8x8">8×8</option>
+  <option value="8x16" selected="selected">8×16</option>
+  <option value="16x16">16×16</option>
+  <option value="16x32">16×32</option>
+</select>
+
+<h3>Pegar _FONT completo</h3>
+<textarea id="fontInput" rows="6"></textarea><br>
+<button onclick="loadFont()">Cargar fuente</button>
+
+<p id="charInfo"></p>
+
+<div id="container">
+  <div id="grid"></div>
+
+  <div id="controls">
+    <button onclick="prevChar()">⬅ Carácter anterior</button>
+    <button onclick="nextChar()">➡ Carácter siguiente</button>
+    <button onclick="clearGrid()">🧹 Limpiar carácter</button>
+    <button onclick="copyChar()">📋 Copiar carácter</button>
+    <button onclick="pasteChar()">📥 Pegar carácter</button>
+    <hr>
+    <button onclick="shiftLeft()">⬅ Desplazar izquierda</button>
+    <button onclick="shiftRight()">➡ Desplazar derecha</button>
+    <button onclick="shiftUp()">⬆ Desplazar arriba</button>
+    <button onclick="shiftDown()">⬇ Desplazar abajo</button>
+    <button onclick="restoreOriginal()">🔄 Restaurar original</button>
+  </div>
+
+  <canvas id="preview"></canvas>
+</div>
+
+<h3>Línea original del carácter</h3>
+<textarea id="originalLine" rows="2" readonly="readonly"></textarea>
+
+<h3>_FONT generado</h3>
+<button onclick="exportFont()">Generar</button>
+<textarea id="fontOutput" rows="6"></textarea>
+
+<script>
+let CHAR_WIDTH=8, CHAR_HEIGHT=16, BYTES_PER_ROW=1;
+let pixels=[], font=[], fontLines=[], originalChars=[];
+let index=0, clipboard=null;
+
+const grid=document.getElementById("grid");
+const preview=document.getElementById("preview");
+const ctx=preview.getContext("2d");
+
+function setupSize(){
+  [CHAR_WIDTH,CHAR_HEIGHT]=document.getElementById("fontSize").value.split("x").map(Number);
+  BYTES_PER_ROW=CHAR_WIDTH/8;
+}
+
+function createGrid(){
+  grid.innerHTML="";
+  grid.style.gridTemplateColumns=`repeat(${CHAR_WIDTH},22px)`;
+  pixels=Array.from({length:CHAR_HEIGHT},()=>Array(CHAR_WIDTH).fill(0));
+
+  for(let y=0;y<CHAR_HEIGHT;y++){
+    for(let x=0;x<CHAR_WIDTH;x++){
+      const c=document.createElement("div");
+      c.className="cell";
+      c.onclick=()=>{
+        pixels[y][x]^=1;
+        c.classList.toggle("on");
+        saveChar();
+        drawPreview();
+      };
+      grid.appendChild(c);
+    }
+  }
+}
+
+function loadFont(){
+  setupSize();
+  createGrid();
+
+  const txt=document.getElementById("fontInput").value;
+  fontLines=txt.match(/b'[^']*'/g)||[];
+  font=fontLines.map(parseLine);
+  originalChars=font.map(c=>c.slice());
+  index=0;
+  loadChar();
+  drawPreview();
+}
+
+function parseLine(line){
+  const bytes=[...line.matchAll(/\\x([0-9a-fA-F]{2})/g)].map(m=>parseInt(m[1],16));
+  if(bytes.length!==CHAR_HEIGHT*BYTES_PER_ROW) alert("Tamaño incorrecto");
+  return bytes;
+}
+
+function loadChar(){
+  const ch=font[index];
+  pixels=Array.from({length:CHAR_HEIGHT},()=>Array(CHAR_WIDTH).fill(0));
+  let p=0;
+  for(let y=0;y<CHAR_HEIGHT;y++){
+    for(let b=0;b<BYTES_PER_ROW;b++){
+      let v=ch[p++];
+      for(let i=7;i>=0;i--) pixels[y][(b*8)+(7-i)]=(v>>i)&1;
+    }
+  }
+  refreshGrid();
+  updateInfo();
+  document.getElementById("originalLine").value=fontLines[index]||"";
+}
+
+function saveChar(){
+  let out=[];
+  for(let y=0;y<CHAR_HEIGHT;y++){
+    for(let b=0;b<BYTES_PER_ROW;b++){
+      let v=0;
+      for(let i=0;i<8;i++) v=(v<<1)|pixels[y][b*8+i];
+      out.push(v);
+    }
+  }
+  font[index]=out;
+}
+
+function refreshGrid(){
+  [...grid.children].forEach((c,i)=>{
+    const y=Math.floor(i/CHAR_WIDTH),x=i%CHAR_WIDTH;
+    c.classList.toggle("on",pixels[y][x]);
+  });
+}
+
+function updateInfo(){
+  const ch=index>=32&&index<=126?String.fromCharCode(index):".";
+  document.getElementById("charInfo").textContent=
+    `Índice ${index} (0x${index.toString(16)}) '${ch}'`;
+}
+
+function prevChar(){ if(index>0){ saveChar(); index--; loadChar(); drawPreview();}}
+function nextChar(){ if(index<font.length-1){ saveChar(); index++; loadChar(); drawPreview();}}
+function clearGrid(){ pixels.forEach(r=>r.fill(0)); refreshGrid(); saveChar(); drawPreview();}
+function copyChar(){ clipboard=font[index].slice(); }
+function pasteChar(){ if(clipboard){ font[index]=clipboard.slice(); loadChar(); drawPreview(); }}
+
+function restoreOriginal(){
+  font[index]=originalChars[index].slice();
+  loadChar();
+  drawPreview();
+}
+
+function shiftLeft(){ pixels.forEach(r=>{r.shift();r.push(0)}); refreshGrid(); saveChar(); drawPreview();}
+function shiftRight(){ pixels.forEach(r=>{r.pop();r.unshift(0)}); refreshGrid(); saveChar(); drawPreview();}
+function shiftUp(){ pixels.shift(); pixels.push(Array(CHAR_WIDTH).fill(0)); refreshGrid(); saveChar(); drawPreview();}
+function shiftDown(){ pixels.pop(); pixels.unshift(Array(CHAR_WIDTH).fill(0)); refreshGrid(); saveChar(); drawPreview();}
+
+function drawPreview(){
+  const scale=1.6, perRow=16;
+  preview.width=perRow*CHAR_WIDTH*scale;
+  preview.height=Math.ceil(font.length/perRow)*CHAR_HEIGHT*scale;
+  ctx.clearRect(0,0,preview.width,preview.height);
+
+  font.forEach((ch,i)=>{
+    const col=i%perRow,row=Math.floor(i/perRow);
+    let p=0;
+    for(let y=0;y<CHAR_HEIGHT;y++){
+      for(let b=0;b<BYTES_PER_ROW;b++){
+        let v=ch[p++];
+        for(let x=0;x<8;x++){
+          if(v&(1<<(7-x))){
+            ctx.fillRect(
+              (col*CHAR_WIDTH+b*8+x)*scale,
+              (row*CHAR_HEIGHT+y)*scale,
+              scale,scale
+            );
+          }
+        }
+      }
+    }
+  });
+}
+
+preview.onclick=e=>{
+  const scale=1.6, perRow=16;
+  const r=preview.getBoundingClientRect();
+  const col=Math.floor((e.clientX-r.left)/(CHAR_WIDTH*scale));
+  const row=Math.floor((e.clientY-r.top)/(CHAR_HEIGHT*scale));
+  const i=row*perRow+col;
+  if(i>=0&&i<font.length){ saveChar(); index=i; loadChar(); drawPreview(); }
+};
+
+function exportFont(){
+  let out="_FONT =\\\n";
+  font.forEach(ch=>{
+    out+="b'";
+    ch.forEach(b=>out+="\\x"+b.toString(16).padStart(2,"0"));
+    out+="'\\\n";
+  });
+  document.getElementById("fontOutput").value=out;
+}
+</script>
+
+
+</body></html>
