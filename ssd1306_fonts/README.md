@@ -1,4 +1,3 @@
-import vga1_8x16 as font# `ssd1306_fonts.py`
 
 Librería MicroPython para pantallas OLED SSD1306 con I2C/SPI, framebuffer `framebuf` y soporte para fuentes bitmap personalizadas.
 
