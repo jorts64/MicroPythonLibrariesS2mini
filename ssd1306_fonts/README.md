@@ -1,6 +1,9 @@
 
 Librería MicroPython para pantallas OLED SSD1306 con I2C/SPI, framebuffer `framebuf` y soporte para fuentes bitmap personalizadas.
 
+![](img/OLED_SSD1306_128x64.png)
+![](img/OLED_SSD1306_128x32.png)
+
 ---
 
 ## 1. Descripción

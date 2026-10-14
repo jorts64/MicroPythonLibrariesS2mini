@@ -4,6 +4,9 @@ Biblioteca para controlar hasta **4 motores paso a paso 28BYJ-48 con ULN2003 por
 
 El PCA9685 genera de forma autónoma las cuatro señales necesarias para cada motor mediante PWM desfasado. El S2 Mini solo configura el PCA9685 por I²C; no tiene que generar los pasos del motor.
 
+![](PCA9685.png)
+![](28BYJ-48.png)
+
 ## Características
 
 - Hasta 4 motores 28BYJ-48 por PCA9685.
