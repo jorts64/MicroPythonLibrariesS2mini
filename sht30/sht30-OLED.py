@@ -14,7 +14,7 @@ def pinta_temp():
     global x
     tmax=45
     temperatura = int(sht30.temperature)
-    if (x <= oled.width-1):
+    if x <= oled.width-1:
         oled.pixel(x,tmax-temperatura,1)
         x = x+1
     else:
