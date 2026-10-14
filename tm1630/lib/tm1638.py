@@ -283,3 +283,15 @@ class TM1638(object):
         for i in range(len(segments) + 9):
             self.segments(data[0+i:8+i])
             sleep_ms(delay)
+
+# Enhanced by Jordi Orts 2026
+
+    def decimal(self, num, decimals=1, pos=0):
+        """Muestra un número decimal en el display.
+        num: número a mostrar
+        decimals: número de cifras decimales
+        pos: posición inicial (0-7)
+        """
+        string = "{:.{}f}".format(num, decimals)
+        self.segments(self.encode_string(string), pos)
+
