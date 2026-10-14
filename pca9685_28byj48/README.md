@@ -7,6 +7,13 @@ El PCA9685 genera de forma autónoma las cuatro señales necesarias para cada mo
 ![](PCA9685.png)
 ![](28BYJ-48.png)
 
+
+
+https://github.com/user-attachments/assets/2835a94c-7ac6-4627-b01d-20507a8a33a8
+
+
+
+
 ## Características
 
 - Hasta 4 motores 28BYJ-48 por PCA9685.
