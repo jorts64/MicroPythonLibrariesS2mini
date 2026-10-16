@@ -1,5 +1,6 @@
-"""converted from vga_8x16.bin """
-"""improved by Jordi Orts """
+""" converted from vga_8x16.bin """
+""" improved by Jordi Orts """
+""" 2026/10/16 clean fixed and automatic in vumeter, battery and bar"""
 WIDTH = 8
 HEIGHT = 16
 FIRST = 0x00
@@ -284,15 +285,15 @@ def battery(oled, level, x, y):
     de batería entre 0% y 100%.
     """
 
-    if level == -1:
-        oled.draw_text(" ", x, y, _THIS_FONT)
-        return
-
     # Limitar el valor al rango válido
     if level < 0:
         level = 0
     elif level > 100:
         level = 100
+
+    # la borramos por defecto
+    oled.fill_rect(x, y, 8, 16, 0) 
+
 
     # Convertir 0..100 a índice 0..11
     index = (level * 11 + 50) // 100
@@ -328,16 +329,16 @@ def bar_done(oled, level, width, x, y):
     if width <= 0:
         return
 
-    # Borrar toda la barra
-    if level == -1:
-        oled.draw_text(" " * width, x, y, _THIS_FONT)
-        return
 
     # Limitar el porcentaje
     if level < 0:
         level = 0
     elif level > 100:
         level = 100
+
+    # la borramos por defecto
+    oled.fill_rect(x, y, width * 8, 16, 0) 
+
 
     # Número total de píxeles horizontales disponibles
     total_pixels = width * 8
@@ -391,17 +392,14 @@ def vumeter(oled, level, height, x, y):
         return
 
     # Limitar el porcentaje
-    if level < -1:
+    if level < 0:
         level = 0
     elif level > 100:
         level = 100
 
-    # Borrar toda la barra
-    if level == -1:
-        for i in range(height):
-            row_y = y + i * 16
-            oled.draw_text(" ", x, row_y, _THIS_FONT)
-        return
+    # la borramos por defecto
+    oled.fill_rect(x, y, 8, height * 16, 0) 
+
 
     # Resolución total de la barra en píxeles
     total_pixels = height * 16
