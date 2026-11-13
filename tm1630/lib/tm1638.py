@@ -4,24 +4,13 @@ https://github.com/mcauser/micropython-tm1638
 
 MIT License
 Copyright (c) 2018 Mike Causer
+"""
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+"""
+Extended for 16 buttons display and float enhanced
+Jordi Orts 2026
+MIT License
+https://github.com/jorts64/MicroPythonLibrariesS2mini/tree/main/tm1630
 """
 
 # LED&KEY module features:
@@ -45,14 +34,29 @@ TM1638_READ = const(2)   # 0x02 read key scan data
 TM1638_FIXED = const(4)  # 0x04 fixed address mode
 
 # 0-9, a-z, blank, dash, star
-_SEGMENTS = bytearray(b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F\x77\x7C\x39\x5E\x79\x71\x3D\x76\x06\x1E\x76\x38\x55\x54\x3F\x73\x67\x50\x6D\x78\x3E\x1C\x2A\x76\x6E\x5B\x00\x40\x63')
+_SEGMENTS = bytearray(
+    b'\x3F\x06\x5B\x4F\x66\x6D\x7D\x07\x7F\x6F'
+    b'\x77\x7C\x39\x5E\x79\x71\x3D\x76\x06\x1E'
+    b'\x76\x38\x55\x54\x3F\x73\x67\x50\x6D\x78'
+    b'\x3E\x1C\x2A\x76\x6E\x5B\x00\x40\x63'
+)
+
 
 class TM1638(object):
     """Library for the TM1638 LED display driver."""
-    def __init__(self, stb, clk, dio, brightness=7):
+
+    def __init__(self, stb, clk, dio, brightness=7,
+                 display_layout="standard"):
         self.stb = stb
         self.clk = clk
         self.dio = dio
+
+        if display_layout not in ("standard", "matrix"):
+            raise ValueError(
+                "display_layout must be 'standard' or 'matrix'"
+            )
+        self._matrix_layout = display_layout == "matrix"
+        self._display_buffer = bytearray(8)
 
         if not 0 <= brightness <= 7:
             raise ValueError("Brightness out of range")
@@ -66,6 +70,7 @@ class TM1638(object):
 
         self.clear()
         self._write_dsp_ctrl()
+
 
     def _write_data_cmd(self):
         # data command: automatic address increment, normal mode
@@ -103,7 +108,7 @@ class TM1638(object):
         return pressed
 
     def power(self, val=None):
-        """Power up, power down or check status"""
+        """Power up, power down or check status."""
         if val is None:
             return self._on == TM1638_DSP_ON
         self._on = TM1638_DSP_ON if val else 0
@@ -121,13 +126,20 @@ class TM1638(object):
         self._write_dsp_ctrl()
 
     def clear(self):
-        """Write zeros to each address"""
+        """Clear the display and all memory addresses."""
         self._write_data_cmd()
         self.stb(0)
         self._set_address(0)
+
         for i in range(16):
             self._byte(0x00)
+
         self.stb(1)
+
+        if self._matrix_layout:
+            for i in range(8):
+                self._display_buffer[i] = 0
+
 
     def write(self, data, pos=0):
         """Write to all 16 addresses from a given position.
@@ -142,12 +154,12 @@ class TM1638(object):
         self.stb(1)
 
     def led(self, pos, val):
-        """Set the value of a single LED"""
+        """Set the value of a single LED."""
         self.write([val], (pos << 1) + 1)
 
     def leds(self, val):
         """Set all LEDs at once. LSB is left most LED.
-        Only writes to the LED positions (every 2nd starting from 1)"""
+        Only writes to the LED positions (every 2nd starting from 1)."""
         self._write_data_cmd()
         pos = 1
         for i in range(8):
@@ -158,10 +170,45 @@ class TM1638(object):
             self.stb(1)
 
     def segments(self, segments, pos=0):
-        """Set one or more segments at a relative position.
-        Only writes to the segment positions (every 2nd starting from 0)"""
+        """Display segment patterns, starting at display position pos.
+
+        In matrix layout, each input byte represents one display. The
+        eight output bytes represent top, upper-right, lower-right,
+        bottom, lower-left, upper-left, center and decimal point.
+        """
         if not 0 <= pos <= 7:
             raise ValueError("Position out of range")
+
+        if self._matrix_layout:
+            # Cada byte recibido representa un display.
+            # Conservamos los demás para permitir actualizaciones parciales.
+            for i, seg in enumerate(segments):
+                display = pos + i
+                if display > 7:
+                    break
+                self._display_buffer[display] = seg & 0xff
+
+            # Cada dirección par selecciona una fila de segmentos.
+            # 0x80 corresponde al display izquierdo y 0x01 al derecho.
+            self._write_data_cmd()
+
+            for segment_bit in range(8):
+                value = 0
+
+                for display in range(8):
+                    if self._display_buffer[display] & (1 << segment_bit):
+                        value |= 1 << (7 - display)
+
+                self.stb(0)
+                self._set_address(segment_bit << 1)
+                self._byte(value)
+                self.stb(1)
+
+            return
+
+
+
+        # Original layout: one byte per display.
         self._write_data_cmd()
         for seg in segments:
             self.stb(0)
@@ -170,8 +217,9 @@ class TM1638(object):
             pos += 1
             self.stb(1)
 
-    def keys(self):
-        """Return a byte representing which keys are pressed. LSB is SW1"""
+
+    def keys8(self):
+        """Return a byte representing which keys are pressed. LSB is SW1."""
         keys = 0
         self.stb(0)
         self._byte(TM1638_CMD1 | TM1638_READ)
@@ -180,8 +228,8 @@ class TM1638(object):
         self.stb(1)
         return keys
 
-    def qyf_keys(self):
-        """Return a 16-bit value representing which keys are pressed. LSB is SW1"""
+    def keys16(self):
+        """Return a 16-bit value representing which keys are pressed. LSB is SW1."""
         keys = 0
         self.stb(0)
         self._byte(TM1638_CMD1 | TM1638_READ)
@@ -189,25 +237,29 @@ class TM1638(object):
             i_keys = self._scan_keys()
             for k in range(2):
                 for j in range(2):
-                    x = (0x04 >> k) << j*4
+                    x = (0x04 >> k) << (j * 4)
                     if i_keys & x == x:
-                        keys |= (1 << (j + k*8 + 2*i))
+                        keys |= 1 << (j + k * 8 + 2 * i)
         self.stb(1)
         return keys
+
+    def keys(self):
+        if self._matrix_layout:
+            return self.keys16()
+        else:
+            return self.keys8()
 
     def encode_digit(self, digit):
         """Convert a character 0-9, a-f to a segment."""
         return _SEGMENTS[digit & 0x0f]
 
     def encode_string(self, string):
-        """Convert an up to 8 character length string containing 0-9, a-z,
-        space, dash, star to an array of segments, matching the length of the
-        source string excluding dots, which are merged with previous char."""
-        segments = bytearray(len(string.replace('.','')))
+        """Encode up to 8 characters; dots are merged with the previous char."""
+        segments = bytearray(len(string.replace('.', '')))
         j = 0
         for i in range(len(string)):
             if string[i] == '.' and j > 0:
-                segments[j-1] |= (1 << 7)
+                segments[j - 1] |= 1 << 7
                 continue
             segments[j] = self.encode_char(string[i])
             j += 1
@@ -217,81 +269,78 @@ class TM1638(object):
         """Convert a character 0-9, a-z, space, dash or star to a segment."""
         o = ord(char)
         if o == 32:
-            return _SEGMENTS[36] # space
+            return _SEGMENTS[36]  # space
         if o == 42:
-            return _SEGMENTS[38] # star/degrees
+            return _SEGMENTS[38]  # star/degrees
         if o == 45:
-            return _SEGMENTS[37] # dash
-        if o >= 65 and o <= 90:
-            return _SEGMENTS[o-55] # uppercase A-Z
-        if o >= 97 and o <= 122:
-            return _SEGMENTS[o-87] # lowercase a-z
-        if o >= 48 and o <= 57:
-            return _SEGMENTS[o-48] # 0-9
-        raise ValueError("Character out of range: {:d} '{:s}'".format(o, chr(o)))
+            return _SEGMENTS[37]  # dash
+        if 65 <= o <= 90:
+            return _SEGMENTS[o - 55]  # uppercase A-Z
+        if 97 <= o <= 122:
+            return _SEGMENTS[o - 87]  # lowercase a-z
+        if 48 <= o <= 57:
+            return _SEGMENTS[o - 48]  # 0-9
+        raise ValueError(
+            "Character out of range: {:d} '{:s}'".format(o, chr(o))
+        )
 
     def hex(self, val):
-        """Display a hex value 0x00000000 through 0xffffffff, right aligned, leading zeros."""
+        """Display a hex value 0x00000000 through 0xffffffff."""
         string = '{:08x}'.format(val & 0xffffffff)
         self.segments(self.encode_string(string))
 
     def number(self, num):
-        """Display a numeric value -9999999 through 99999999, right aligned."""
-        # limit to range -9999999 to 99999999
+        """Display a numeric value -9999999 through 99999999."""
         num = max(-9999999, min(num, 99999999))
         string = '{0: >8d}'.format(num)
         self.segments(self.encode_string(string))
 
-    #def float(self, num):
-    #    # needs more work
-    #    string = '{0:>9f}'.format(num)
-    #    self.segments(self.encode_string(string[0:9]))
+    # def float(self, num):
+    #     # needs more work
+    #     string = '{0:>9f}'.format(num)
+    #     self.segments(self.encode_string(string[0:9]))
 
     def temperature(self, num, pos=0):
-        """Displays 2 digit temperature followed by degrees C"""
+        """Display a 2 digit temperature followed by degrees C."""
         if num < -9:
-            self.show('lo', pos) # low
+            self.show('lo', pos)
         elif num > 99:
-            self.show('hi', pos) # high
+            self.show('hi', pos)
         else:
             string = '{0: >2d}'.format(num)
             self.segments(self.encode_string(string), pos)
-        self.show('*C', pos + 2) # degrees C
+        self.show('*C', pos + 2)
 
     def humidity(self, num, pos=4):
-        """Displays 2 digit humidity followed by RH"""
+        """Display a 2 digit humidity followed by RH."""
         if num < -9:
-            self.show('lo', pos) # low
+            self.show('lo', pos)
         elif num > 99:
-            self.show('hi', pos) # high
+            self.show('hi', pos)
         else:
             string = '{0: >2d}'.format(num)
             self.segments(self.encode_string(string), pos)
-        self.show('rh', pos + 2) # relative humidity
+        self.show('rh', pos + 2)
 
     def show(self, string, pos=0):
-        """Displays a string"""
+        """Display a string."""
         segments = self.encode_string(string)
         self.segments(segments[:8], pos)
 
     def scroll(self, string, delay=250):
-        """Display a string, scrolling from the right to left, speed adjustable.
-        String starts off-screen right and scrolls until off-screen left."""
-        segments = string if isinstance(string, list) else self.encode_string(string)
+        """Scroll a string from right to left."""
+        segments = (
+            string if isinstance(string, list)
+            else self.encode_string(string)
+        )
         data = [0] * 16
         data[8:0] = list(segments)
         for i in range(len(segments) + 9):
-            self.segments(data[0+i:8+i])
+            self.segments(data[i:i + 8])
             sleep_ms(delay)
 
-# Enhanced by Jordi Orts 2026
 
     def decimal(self, num, decimals=1, pos=0):
-        """Muestra un número decimal en el display.
-        num: número a mostrar
-        decimals: número de cifras decimales
-        pos: posición inicial (0-7)
-        """
+        """Display a decimal number."""
         string = "{:.{}f}".format(num, decimals)
         self.segments(self.encode_string(string), pos)
-
